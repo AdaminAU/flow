@@ -1137,18 +1137,24 @@ async function api(action,data){
   if(!useCloud)throw new Error('no url');
   const p=new URLSearchParams({action});
   if(data!==undefined)p.append('data',JSON.stringify(data));
-  // 用 JSONP 方式绕过 CORS 限制
   return new Promise((resolve,reject)=>{
     const cbName='_cb'+Date.now();
+    let settled=false;
     const timer=setTimeout(()=>{
-      delete window[cbName];
+      if(settled)return;
+      settled=true;
+      // 超时不删 callback，让它变成静默 noop，避免报错
+      window[cbName]=function(){};
       const s=document.getElementById(cbName);
       if(s)s.remove();
       reject(new Error('timeout'));
-    },15000);
+    },30000); // 30秒超时
     window[cbName]=function(json){
+      if(settled)return;
+      settled=true;
       clearTimeout(timer);
-      delete window[cbName];
+      // 延迟删除，确保函数执行完毕
+      setTimeout(()=>{ delete window[cbName]; },100);
       const s=document.getElementById(cbName);
       if(s)s.remove();
       if(json&&json.error)reject(new Error(json.error));
@@ -1159,6 +1165,8 @@ async function api(action,data){
     script.id=cbName;
     script.src=SCRIPT_URL+'?'+p.toString();
     script.onerror=()=>{
+      if(settled)return;
+      settled=true;
       clearTimeout(timer);
       delete window[cbName];
       script.remove();
