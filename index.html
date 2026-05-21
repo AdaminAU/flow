@@ -1135,25 +1135,41 @@ function dateLabel(str){const d=new Date(str+'T00:00:00');const w=['日','一','
 
 async function api(action,data){
   if(!useCloud)throw new Error('no url');
+
+  // 写入操作用 fetch + no-cors（不需要读返回值，只要发出去）
+  const writeActions=['saveTasks','savePlan','saveProgress','saveProjects'];
+  if(writeActions.includes(action)){
+    const p=new URLSearchParams({action});
+    if(data!==undefined)p.append('data',JSON.stringify(data));
+    try{
+      await fetch(SCRIPT_URL+'?'+p.toString(),{
+        method:'GET',
+        mode:'no-cors',
+        cache:'no-cache'
+      });
+      return {ok:true};
+    }catch(e){
+      throw new Error('save failed: '+e.message);
+    }
+  }
+
+  // 读取操作用 JSONP
   const p=new URLSearchParams({action});
-  if(data!==undefined)p.append('data',JSON.stringify(data));
   return new Promise((resolve,reject)=>{
     const cbName='_cb'+Date.now()+'_'+Math.random().toString(36).slice(2);
     let settled=false;
     const timer=setTimeout(()=>{
       if(settled)return;
       settled=true;
-      // 超时不删 callback，让它变成静默 noop，避免报错
       window[cbName]=function(){};
       const s=document.getElementById(cbName);
       if(s)s.remove();
       reject(new Error('timeout'));
-    },30000); // 30秒超时
+    },30000);
     window[cbName]=function(json){
       if(settled)return;
       settled=true;
       clearTimeout(timer);
-      // 延迟删除，确保函数执行完毕
       setTimeout(()=>{ delete window[cbName]; },100);
       const s=document.getElementById(cbName);
       if(s)s.remove();
