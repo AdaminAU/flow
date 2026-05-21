@@ -1138,7 +1138,7 @@ async function api(action,data){
   const p=new URLSearchParams({action});
   if(data!==undefined)p.append('data',JSON.stringify(data));
   return new Promise((resolve,reject)=>{
-    const cbName='_cb'+Date.now();
+    const cbName='_cb'+Date.now()+'_'+Math.random().toString(36).slice(2);
     let settled=false;
     const timer=setTimeout(()=>{
       if(settled)return;
